@@ -26,7 +26,7 @@ knowledge:
 
 # Payment rails — activate with: pnpm node:activate-payments
 payments:
-  status: pending_activation
+  status: active
 
 # Born-reviewable default gates (BORN_REVIEWABLE). No `nodes:` registry → the operator's
 # review path resolves this minted repo as a single-node fork and runs these gates against
@@ -46,3 +46,17 @@ gates:
   - type: ai-rule
     with:
       rule_file: repo-goal-alignment.yaml
+
+node_wallet:
+  address: "0xdCCa8D85603C2CC47dc6974a790dF846f8695056"
+
+payments_in:
+  credits_topup:
+    provider: cogni-usdc-backend-v1
+    receiving_address: "0xec9add7DF66E0481E87C8fB04F22f9813F3B0894"
+    allowed_chains:
+      - Base
+    allowed_tokens:
+      - USDC
+    markup_factor: 1.10803324099723
+    revenue_share: 0
