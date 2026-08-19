@@ -37,16 +37,22 @@ export * from "./analytics.summary.v1.contract";
 export * from "./attribution.collect-trigger.v1.contract";
 export * from "./attribution.epoch-activity.v1.contract";
 export * from "./attribution.epoch-claimants.v1.contract";
+export * from "./attribution.epoch-distribution.v1.contract";
 export * from "./attribution.epoch-statement.v1.contract";
 export * from "./attribution.epoch-user-projections.v1.contract";
 export * from "./attribution.finalize-epoch.v1.contract";
+export * from "./attribution.latest-distribution.v1.contract";
 export * from "./attribution.list-epochs.v1.contract";
+export * from "./attribution.receipts.internal.v1.contract";
 export * from "./attribution.record-pool-component.v1.contract";
 export * from "./attribution.review-epoch.v1.contract";
 export * from "./attribution.review-subject-overrides.v1.contract";
 export * from "./attribution.sign-data.v1.contract";
+export * from "./attribution.sign-data.v2.contract";
 // ── Billing ─────────────────────────────────────────────────────────────────
 export * from "./billing-ingest.internal.v1.contract";
+// ── Cognition (session-start substrate bundle) ──────────────────────────────
+export * from "./cognition.v1.contract";
 // ── Chat errors ─────────────────────────────────────────────────────────────
 export * from "./error.chat.v1.contract";
 export * from "./governance.status.v1.contract";

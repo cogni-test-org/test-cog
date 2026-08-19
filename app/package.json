@@ -9,6 +9,7 @@
     "lint": "biome check . && eslint src/app src/components src/features src/styles --report-unused-disable-directives --max-warnings=0 --no-error-on-unmatched-pattern",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "test": "vitest run",
+    "test:component": "vitest run --config vitest.component.config.mts",
     "test:external": "vitest run --config vitest.external.config.mts",
     "test:external:money": "vitest run --config vitest.external-money.config.mts"
   },
@@ -21,7 +22,9 @@
     "@cogni/ai-core": "workspace:*",
     "@cogni/ai-tools": "workspace:*",
     "@cogni/aragon-osx": "workspace:*",
+    "@cogni/attribution-collect": "workspace:*",
     "@cogni/attribution-ledger": "workspace:*",
+    "@cogni/attribution-pipeline-plugins": "workspace:*",
     "@cogni/cogni-contracts": "workspace:*",
     "@cogni/db-client": "workspace:*",
     "@cogni/db-schema": "workspace:*",
@@ -104,6 +107,8 @@
     "radix-ui": "^1.4.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "react-force-graph-3d": "^1.29.1",
+    "react-markdown": "^10.1.0",
     "recharts": "^2.15.4",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
@@ -120,6 +125,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "^11.8.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
