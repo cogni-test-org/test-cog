@@ -91,26 +91,77 @@ expectStep(CI_WORKFLOW_PATH, unitSteps, "Unit + contract coverage tests");
 
 expectEqual(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow?.name, "PR Build", "workflow name");
 expectTrigger(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow, "pull_request");
+expectTrigger(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow, "merge_group");
 expectMainPush(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow);
-expectNoWorkflowDispatch(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow);
+// MONOREPO PARITY (bug.5057): pr-build MUST support the operator's RBAC-gated
+// trusted-build `workflow_dispatch` (build an approved fork PR head → flightable
+// image). This is the operator dispatch path, NOT a fork self-pushing — the
+// `should_push=false` fork guard below still holds. The old `expectNoWorkflowDispatch`
+// here was split-brain vs the monorepo and is removed; require the trusted-build
+// inputs instead so the dispatch contract can't silently drift.
+expectTrigger(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow, "workflow_dispatch");
+{
+  const dispatchInputs =
+    prBuildWorkflow?.on?.workflow_dispatch?.inputs ?? {};
+  for (const required of ["head_repo", "head_sha"]) {
+    if (!Object.hasOwn(dispatchInputs, required)) {
+      fail(
+        PR_BUILD_WORKFLOW_PATH,
+        `workflow_dispatch must declare the trusted-build input "${required}"`
+      );
+    }
+  }
+}
 expectEqual(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow?.permissions?.contents, "read", "permissions.contents");
 expectEqual(PR_BUILD_WORKFLOW_PATH, prBuildWorkflow?.permissions?.packages, "write", "permissions.packages");
+// cancel-in-progress must NOT cancel a push:main (publishes the deployable) or a
+// trusted dispatch (each fork build keyed by its own head_sha) — same as the monorepo.
+// So it is an expression, not a literal `true`; assert it is present.
+if (prBuildWorkflow?.concurrency?.["cancel-in-progress"] === undefined) {
+  fail(PR_BUILD_WORKFLOW_PATH, "concurrency.cancel-in-progress must be set");
+}
+
+const resolveJob = prBuildWorkflow?.jobs?.resolve;
+if (!resolveJob) fail(PR_BUILD_WORKFLOW_PATH, "jobs must include resolve");
+const resolveSteps = Array.isArray(resolveJob?.steps) ? resolveJob.steps : [];
+const sourceStep = expectStep(PR_BUILD_WORKFLOW_PATH, resolveSteps, "Resolve source metadata");
+const sourceRun = String(sourceStep?.run ?? "");
+expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, 'source_sha="$PR_HEAD_SHA"', "pull_request source SHA");
+expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, 'source_sha="$PUSH_SHA"', "push source SHA");
+expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "image_name=ghcr.io/${owner_lc}/${repo_lc}", "repo-owned image name");
+expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "image_tag=sha-${source_sha}", "source SHA image tag");
+expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "should_push=false", "fork pull_request push guard");
+
+const detectJob = prBuildWorkflow?.jobs?.detect;
+if (!detectJob) fail(PR_BUILD_WORKFLOW_PATH, "jobs must include detect");
+expectEqual(PR_BUILD_WORKFLOW_PATH, detectJob?.needs, "resolve", "jobs.detect.needs");
+const detectSteps = Array.isArray(detectJob?.steps) ? detectJob.steps : [];
+expectStep(PR_BUILD_WORKFLOW_PATH, detectSteps, "Detect node image targets");
 
 const buildJob = prBuildWorkflow?.jobs?.build;
 if (!buildJob) fail(PR_BUILD_WORKFLOW_PATH, "jobs must include build");
-expectEqual(PR_BUILD_WORKFLOW_PATH, buildJob?.name, "Build and image", "jobs.build.name");
+if (!Array.isArray(buildJob?.needs) || buildJob.needs.join(",") !== "resolve,detect") {
+  fail(PR_BUILD_WORKFLOW_PATH, "jobs.build.needs must be [\"resolve\", \"detect\"]");
+}
+expectEqual(PR_BUILD_WORKFLOW_PATH, buildJob?.strategy?.["fail-fast"], false, "jobs.build.strategy.fail-fast");
 const buildSteps = Array.isArray(buildJob?.steps) ? buildJob.steps : [];
-const sourceStep = expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Resolve source metadata");
-const sourceRun = String(sourceStep?.run ?? "");
-expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "source_sha=\"$PR_HEAD_SHA\"", "pull_request source SHA");
-expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "source_sha=\"$PUSH_SHA\"", "push source SHA");
-expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "image_name=ghcr.io/${owner_lc}/${repo_lc}", "repo-owned image name");
-expectIncludes(PR_BUILD_WORKFLOW_PATH, sourceRun, "image_tag=sha-${source_sha}", "source SHA image tag");
 expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Checkout");
 expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Install");
 expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Typecheck package closure");
 expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Login to GHCR");
 expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Build app image");
+expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Write build fragment");
+expectStep(PR_BUILD_WORKFLOW_PATH, buildSteps, "Upload build fragment");
+
+const manifestJob = prBuildWorkflow?.jobs?.manifest;
+if (!manifestJob) fail(PR_BUILD_WORKFLOW_PATH, "jobs must include manifest");
+if (!Array.isArray(manifestJob?.needs) || manifestJob.needs.join(",") !== "resolve,detect,build") {
+  fail(PR_BUILD_WORKFLOW_PATH, "jobs.manifest.needs must be [\"resolve\", \"detect\", \"build\"]");
+}
+const manifestSteps = Array.isArray(manifestJob?.steps) ? manifestJob.steps : [];
+expectStep(PR_BUILD_WORKFLOW_PATH, manifestSteps, "Download build fragments");
+expectStep(PR_BUILD_WORKFLOW_PATH, manifestSteps, "Write build manifest");
+expectStep(PR_BUILD_WORKFLOW_PATH, manifestSteps, "Upload build manifest");
 
 expectEqual(PR_LINT_WORKFLOW_PATH, prLintWorkflow?.name, "Lint PR", "workflow name");
 expectTrigger(PR_LINT_WORKFLOW_PATH, prLintWorkflow, "pull_request");
