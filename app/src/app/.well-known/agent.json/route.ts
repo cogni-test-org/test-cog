@@ -4,7 +4,7 @@
 /**
  * Module: `@app/.well-known/agent.json`
  * Purpose: Discovery document for machine agents — publishes the register,
- *   runs, runStream, and completions URLs plus the auth scheme so external
+ *   runs, work-items, and completions URLs plus the auth scheme so external
  *   clients can bootstrap without hard-coding paths or reading docs.
  * Scope: Single GET handler. Honors `x-forwarded-host`/`x-forwarded-proto`
  *   from Caddy / k8s ingress so the published URLs are externally reachable
@@ -18,7 +18,12 @@
  * @public
  */
 
+import {
+  workItemsCreateOperation,
+  workItemsPatchOperation,
+} from "@cogni/node-contracts";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { serverEnv } from "@/shared/env";
 
 export const runtime = "nodejs";
@@ -51,10 +56,28 @@ export async function GET(request: Request) {
     registrationUrl: `${origin}/api/v1/agent/register`,
     auth: { type: "bearer", keyPrefix: "cogni_ag_sk_v1_" },
     endpoints: {
+      openapi: `${origin}/openapi.json`,
       completions: `${origin}/api/v1/chat/completions`,
       graphs: `${origin}/api/v1/ai/agents`,
       runs: `${origin}/api/v1/agent/runs`,
       runStream: `${origin}/api/v1/agent/runs/{runId}/stream`,
+      workItems: `${origin}/api/v1/work/items`,
+    },
+    actions: {
+      createWorkItem: {
+        method: "POST",
+        endpoint: `${origin}/api/v1/work/items`,
+        auth: { type: "bearer" },
+        inputSchema: z.toJSONSchema(workItemsCreateOperation.input),
+        outputSchema: z.toJSONSchema(workItemsCreateOperation.output),
+      },
+      updateWorkItem: {
+        method: "PATCH",
+        endpoint: `${origin}/api/v1/work/items/{id}`,
+        auth: { type: "bearer" },
+        inputSchema: z.toJSONSchema(workItemsPatchOperation.input),
+        outputSchema: z.toJSONSchema(workItemsPatchOperation.output),
+      },
     },
     defaults: {
       model: "gpt-4o-mini",
